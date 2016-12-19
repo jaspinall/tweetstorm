@@ -1,22 +1,41 @@
 const express = require('express');
-const Twitter = require('twitter');
+const Twit = require('twit');
 const bodyParser = require('body-parser');
+const WebSocketServer = require('ws').Server;
+const http = require('http');
 
-const app = express();
 
-app.use(bodyParser.json());
 
-const client = new Twitter({
+const CLIENT = new Twit({
   consumer_key: "NiRvanOOctsdaVCfxw7mUpy6L",
   consumer_secret: "0nHXTtZOzo2xggNO9tztltbuoaDXIJ3gr4YzE28t7QtIByNekh",
-  access_token_key: "512489891-3oUv9icyfWzzHMPqsjsNNjIDlJjaZeDmsMYKOfLp",
+  access_token: "512489891-3oUv9icyfWzzHMPqsjsNNjIDlJjaZeDmsMYKOfLp",
   access_token_secret: "h0QiaqumFes1qdGExAoyOjHZs7mnuZIE15zLO2DFPBLuE"
 });
 
+const app = express();
+app.use(bodyParser.json());
 
-const stream = client.stream('statuses/filter', {locations: '-122.75,36.8,-121.75,37.8'});
-stream.on('data', function(event) {
-  console.log(event);
-});
 
-app.listen(3000, () => console.log('listening on port 3000'));
+const server = http.createServer(app);
+let i = 1;
+
+const wss = new WebSocketServer({ server });
+wss.on('connection', ws => {
+  const subscriptions = {};
+  const id = i++;
+  console.log(`${id} OPEN`);
+  const stream = CLIENT.stream('statuses/filter', { locations: '-122.75,36.8,-121.75,37.8' });
+  ws.on('message', message => {
+    console.log(message);
+    stream.on('tweet', function (tweet) {
+      ws.send(JSON.stringify(tweet));
+    });
+  })
+  ws.on('close', () => {
+    stream.stop();
+  })
+})
+
+
+server.listen(3000, () => console.log('listening on port 3000'));
