@@ -22,12 +22,20 @@ wss.on('connection', ws => {
   const subscriptions = {};
   const id = i++;
   console.log(`${id} OPEN`);
-  const stream = CLIENT.stream('statuses/filter', { locations: '-122.75,36.8,-121.75,37.8' });
-  stream.on('tweet', function (tweet) {
-    ws.send(JSON.stringify(tweet));
-  });
-  ws.on('close', () => {
-    stream.stop();
+  ws.on('message', message => {
+    const data = JSON.parse(message);
+    if (data.sub && !subscriptions[data.sub]) {
+      console.log('adding ', data.sub, 'subscription');
+      subscriptions[data.sub] = CLIENT.stream('statuses/filter', { track: data.sub });
+      subscriptions[data.sub].on('tweet', function (tweet) {
+          tweet.keyword = data.sub;
+          ws.send(JSON.stringify(tweet));
+      });
+    }
+    if (data.unsub && subscriptions[data.unsub]) {
+      console.log('shutting down ', data.unsub, 'stream');
+      subscriptions[data.unsub].stop();
+    }
   })
 })
 
